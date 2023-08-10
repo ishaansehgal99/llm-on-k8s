@@ -9,7 +9,7 @@ spec:
   - command:
     - sleep
     - infinity
-    image: llama.azurecr.io/llama-2-7b:latest
+    image: ishaansehgal99/llama-2-7b:v2
     name: main
     resources:
       limits:

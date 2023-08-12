@@ -7,7 +7,7 @@ import sys
 from llama import Llama
 
 def main(
-    ckpt_dir: str = 'llama-2-7b-weights/',
+    ckpt_dir: str = 'weights/',
     tokenizer_path: str = 'tokenizer.model',
     temperature: float = 0.6,
     top_p: float = 0.9,

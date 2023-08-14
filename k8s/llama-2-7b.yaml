@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: llama-container
-        image: ishaansehgal99/llama-2-7b:v2
+        image: ishaansehgal99/llama-2-7b:latest
 
 ---
 

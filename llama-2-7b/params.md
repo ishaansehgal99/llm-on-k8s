@@ -6,7 +6,7 @@ File is to explain the parameters used by llama-2
 
 -> temperature: This hyperparam controls the randomness of predictions by scaling logits before applying the softmax for results. A temperature closer to 0 makes the model more deterministic (choosing the most probable output) whereas a higher temperature makes the output more random. 
 
--> max_seq_len: maximum sequence length for the input text. This is usually bound by the model's architecture (e.g. the maximum length the llama transformer can take at a time) so it is in range of [1, max_input_length_supported_by_model], in this case [1, 2048] (https://github.com/facebookresearch/llama/blob/main/llama/model.py#L31)
+-> max_seq_len: maximum length for both the input and output tokens. This is usually bound by the model's architecture (e.g. the maximum length the llama transformer can take at a time) so it is in range of [1, max_length_supported_by_model], (https://github.com/facebookresearch/llama/blob/main/llama/model.py#L31)
 
 -> max_gen_len: A cap on maximum sequence length for the generated text. Like max_seq_len this is also usually bound by the model architecture. In this case it is in range of [1, 2048] (https://github.com/facebookresearch/llama/blob/main/llama/generation.py#L191) 
 

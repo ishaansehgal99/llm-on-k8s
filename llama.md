@@ -1,6 +1,6 @@
 What makes llama 2 unique from traditional transformer based architecture? 
 
--> Increased context length, context window for llama 2 model is doubled in size from 2048 to 4096 tokens. This allows model to process more information and better understand long sequences of text. 
+-> Increased context length, context window for llama 2 model is 2048 tokens. This allows model to process more information and better understand long sequences of text. 
 
 -> Grouped Query Attention (GQA) Llama 2 model uses GQA to improve effciency of the attention mechanism (attention is the most time consuming part of transformer arch). GQA groups similiar tokens together and attends to them as a single unit (uses the same Key, Query, Value) for them. This reduces number of computations that need to be performed which makes the model faster and more efficient. 
 

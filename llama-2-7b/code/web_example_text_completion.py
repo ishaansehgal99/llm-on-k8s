@@ -48,18 +48,29 @@ window = SlidingWindow(max_seq_len=gen_params['max_seq_len'])
 @app.route('/configure', methods=['POST'])
 def configure_generator():
     global generator
+    global gen_params
+    global window
 
+    context = request.json.get('context')
+    if context and context.strip().lower() == "clear":
+        window.token_history.clear()
+    
+    new_params = {}
     for key, value in gen_params.items():
-        gen_params[key] = request.json.get(key, value)
+        new_params[key] = request.json.get(key, value)
 
-    generator = Llama.build(
-        ckpt_dir=gen_params['ckpt_dir'],
-        tokenizer_path=gen_params['tokenizer_path'],
-        max_seq_len=gen_params['max_seq_len'],
-        max_batch_size=gen_params['max_batch_size'],
-        # Reinitializing generator requires this additional param
-        model_parallel_size=gen_params['model_parallel_size']
-    )
+    try:
+        generator = Llama.build(
+            ckpt_dir=new_params['ckpt_dir'],
+            tokenizer_path=new_params['tokenizer_path'],
+            max_seq_len=new_params['max_seq_len'],
+            max_batch_size=new_params['max_batch_size'],
+            # Reinitializing generator requires this additional param
+            model_parallel_size=new_params['model_parallel_size']
+        )
+        gen_params = new_params
+    except Exception as e: 
+        return jsonify(status="Failed invalid parameters: " + str(e)), 400
 
     window.max_seq_len = gen_params['max_seq_len']
     return jsonify(status="success"), 200

@@ -13,9 +13,25 @@ spec:
         app: llama
     spec:
       containers:
-      - name: llama-container
+      - command:
+        - /bin/sh
+        - -c
+        - cd /workspace/llama/llama-2-7b && torchrun web_example_text_completion.py
+        name: llama-container
         image: ishaansehgal99/llama-2-7b:latest
-
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+          requests:
+            nvidia.com/gpu: "1"
+      tolerations:
+      - effect: NoSchedule
+        key: sku
+        operator: Equal
+        value: gpu
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Exists
 ---
 
 apiVersion: v1
@@ -30,4 +46,3 @@ spec:
       port: 80
       targetPort: 5000
   type: LoadBalancer
-

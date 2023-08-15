@@ -12,7 +12,7 @@ class SlidingWindow:
     def append(self, max_gen_len, new_prompt_tokens):
         available_tokens = self.max_seq_len - len(new_prompt_tokens)
         if available_tokens < 0:
-            print("User input exceeds the maximum token length")
+            return None
 
         # Account for tokens required for model output
         available_tokens -= max_gen_len
@@ -70,7 +70,7 @@ def configure_generator():
         )
         gen_params = new_params
     except Exception as e: 
-        return jsonify(status="Failed invalid parameters: " + str(e)), 400
+        return jsonify(error="Failed invalid parameters: " + str(e)), 400
 
     window.max_seq_len = gen_params['max_seq_len']
     return jsonify(status="success"), 200
@@ -93,17 +93,22 @@ def generate_text():
 
         # Append new prompt to sliding window
         result_window = window.append(max_gen_len, new_prompt_tokens)
+        if not result_window:
+            return jsonify(error="User input exceeds the maximum token length"), 400
 
         # Decode resulting window
         prompt = tokenizer.decode(result_window)
         # print(prompt, "prompt with context")
 
-    results = generator.text_completion(
-        [prompt], # Note when we pass context its in the same prompt
-        max_gen_len=max_gen_len,
-        temperature=temperature,
-        top_p=top_p,
-    )
+    try: 
+        results = generator.text_completion(
+            [prompt], # Note when we pass context its in the same prompt
+            max_gen_len=max_gen_len,
+            temperature=temperature,
+            top_p=top_p,
+        )
+    except Exception as e:
+        return jsonify(error="Request Failed" + str(e)), 400
 
     if len(results) == 0:
         return jsonify(error="No results"), 404

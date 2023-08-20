@@ -45,6 +45,10 @@ generator = Llama.build(
 
 window = SlidingWindow(max_seq_len=gen_params['max_seq_len'])
 
+@app.route('/')
+def health_check():
+    return "Server is running", 200
+
 @app.route('/configure', methods=['POST'])
 def configure_generator():
     global generator

@@ -9,7 +9,7 @@ spec:
   - command:
     - sleep
     - infinity
-    image: ishaansehgal99/llama-2-7b:latest
+    image: ishaansehgal99/llama-2-7b-chat:latest
     name: main
     resources:
       limits:

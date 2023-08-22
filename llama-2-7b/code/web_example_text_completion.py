@@ -1,68 +1,82 @@
 from flask import Flask, request, jsonify
 from llama import Llama
-# from llama.tokenizer import Tokenizer
+import os
 
 app = Flask(__name__)
 
-class SlidingWindow: 
-    def __init__(self, max_seq_len, max_gen_len): 
+class SlidingWindow:
+    def __init__(self, max_seq_len):
         self.max_seq_len = max_seq_len
-        self.max_gen_len = max_gen_len
         self.token_history = []
 
-    def append(self, new_prompt_tokens): 
+    def append(self, max_gen_len, new_prompt_tokens):
         available_tokens = self.max_seq_len - len(new_prompt_tokens)
-        if available_tokens < 0: 
-            print("User input exceeds the maximum token length")
-        
+        if available_tokens < 0:
+            return None
+
         # Account for tokens required for model output
-        available_tokens -= self.max_gen_len
+        available_tokens -= max_gen_len
 
         if available_tokens > len(self.token_history):
             self.token_history.extend(new_prompt_tokens)
             return self.token_history
-                
+
         # If the total tokens exceed the allowed limit, remove the earliest tokens
         global generator
-        print(generator.tokenizer.decode(self.token_history[-available_tokens:]), "context")
         self.token_history = self.token_history[-available_tokens:] + new_prompt_tokens
-        assert len(self.token_history) == available_tokens
+        assert len(self.token_history) == self.max_seq_len - max_gen_len
         return self.token_history
 
 # Default values for the generator
-default_values = {
+gen_params = {
     'ckpt_dir': 'weights/',
     'tokenizer_path': 'tokenizer.model',
     'max_seq_len': 128,
-    'max_batch_size': 4
+    'max_batch_size': 4,
+    'model_parallel_size': int(os.environ.get("WORLD_SIZE", 1)),
 }
 
 generator = Llama.build(
-    ckpt_dir=default_values['ckpt_dir'],
-    tokenizer_path=default_values['tokenizer_path'],
-    max_seq_len=default_values['max_seq_len'],
-    max_batch_size=default_values['max_batch_size']
+    ckpt_dir=gen_params['ckpt_dir'],
+    tokenizer_path=gen_params['tokenizer_path'],
+    max_seq_len=gen_params['max_seq_len'],
+    max_batch_size=gen_params['max_batch_size'],
 )
 
-window = SlidingWindow(max_seq_len=default_values['max_seq_len'])
+window = SlidingWindow(max_seq_len=gen_params['max_seq_len'])
+
+@app.route('/')
+def health_check():
+    return "Server is running", 200
 
 @app.route('/configure', methods=['POST'])
 def configure_generator():
     global generator
+    global gen_params
+    global window
 
-    ckpt_dir = request.json.get('ckpt_dir', default_values['ckpt_dir'])
-    tokenizer_path = request.json.get('tokenizer_path', default_values['tokenizer_path'])
-    max_seq_len = int(request.json.get('max_seq_len', default_values['max_seq_len']))
-    max_batch_size = int(request.json.get('max_batch_size', default_values['max_batch_size']))
+    context = request.json.get('context')
+    if context and context.strip().lower() == "clear":
+        window.token_history.clear()
+    
+    new_params = {}
+    for key, value in gen_params.items():
+        new_params[key] = request.json.get(key, value)
 
-    generator = Llama.build(
-        ckpt_dir=ckpt_dir,
-        tokenizer_path=tokenizer_path,
-        max_seq_len=max_seq_len,
-        max_batch_size=max_batch_size,
-    )
+    try:
+        generator = Llama.build(
+            ckpt_dir=new_params['ckpt_dir'],
+            tokenizer_path=new_params['tokenizer_path'],
+            max_seq_len=new_params['max_seq_len'],
+            max_batch_size=new_params['max_batch_size'],
+            # Reinitializing generator requires this additional param
+            model_parallel_size=new_params['model_parallel_size']
+        )
+        gen_params = new_params
+    except Exception as e: 
+        return jsonify(error="Failed invalid parameters: " + str(e)), 400
 
-    window.max_seq_len = max_seq_len
+    window.max_seq_len = gen_params['max_seq_len']
     return jsonify(status="success"), 200
 
 @app.route('/generate', methods=['GET'])
@@ -75,26 +89,30 @@ def generate_text():
     temperature = float(request.args.get('temperature', 0.6))
     top_p = float(request.args.get('top_p', 0.9))
     max_gen_len = int(request.args.get('max_gen_len', 64))
+    context = request.args.get('context')
+    if context and context.strip().lower() == "true":
+        # Tokenize the prompt using the tokenizer
+        tokenizer = generator.tokenizer
+        new_prompt_tokens = tokenizer.encode(prompt, bos=False, eos=False)
 
-    # Tokenize the prompt using the tokenizer 
-    tokenizer = generator.tokenizer
-    new_prompt_tokens = tokenizer.encode(prompt, bos=False, eos=False)
+        # Append new prompt to sliding window
+        result_window = window.append(max_gen_len, new_prompt_tokens)
+        if not result_window:
+            return jsonify(error="User input exceeds the maximum token length"), 400
 
-    # Append to sliding window
-    result_window = window.append(new_prompt_tokens)
+        # Decode resulting window
+        prompt = tokenizer.decode(result_window)
+        # print(prompt, "prompt with context")
 
-    # Concatenate the prompt history
-    prompt_with_context = tokenizer.decode(result_window)
-
-    print(prompt, "prompt")
-    print(prompt_with_context, "prompt with context")
-
-    results = generator.text_completion(
-        [prompt_with_context], # Note we pass context in the same prompt
-        max_gen_len=max_gen_len,
-        temperature=temperature,
-        top_p=top_p,
-    )
+    try: 
+        results = generator.text_completion(
+            [prompt], # Note when we pass context its in the same prompt
+            max_gen_len=max_gen_len,
+            temperature=temperature,
+            top_p=top_p,
+        )
+    except Exception as e:
+        return jsonify(error="Request Failed" + str(e)), 400
 
     if len(results) == 0:
         return jsonify(error="No results"), 404

@@ -1,6 +1,7 @@
 import requests
 import time
 import csv
+import random
 from datetime import datetime
 
 def is_file_empty(filename):
@@ -9,15 +10,23 @@ def is_file_empty(filename):
     except:
         return True
 
+def load_search_terms_from_csv(filename):
+    with open(filename, 'r', newline='') as file:
+        reader = csv.DictReader(file)
+        return [row['search_terms'] for row in reader]
+
+# Load search terms and shuffle them for randomness
+search_terms = load_search_terms_from_csv("common-gpt-questions.csv")
+random.shuffle(search_terms)
+
 # Constants
-URL = "http://52.249.202.104/chat" # Replace with service URL
-NUM_REQUESTS = 1000
+URL = "http://52.149.254.11/chat" # Replace with service URL
 input_payload = {
     "input_data": {
         "input_string": [
             {
                 "role": "user",
-                "content": "Hello, how are you?"
+                "content": ""
             }
         ], 
     },
@@ -28,6 +37,8 @@ input_payload = {
     }
 }
 
+NUM_REQUESTS = min(1000, len(search_terms))  # Cannot exceed the number of questions available
+
 # Generate a unique run_id based on the current timestamp
 run_id = int(time.time())
 
@@ -35,17 +46,22 @@ run_id = int(time.time())
 latencies = []
 
 # Open the CSV for writing
-with open('requests.csv', 'a', newline='') as file:
+with open('gpt-requests.csv', 'a', newline='') as file:
     writer = csv.writer(file)
     
     # If the file is empty, write the header
-    if is_file_empty('requests.csv'):
+    if is_file_empty('gpt-requests.csv'):
         writer.writerow(["run_id", "request_id", "request_num", "latency", "timestamp"])
 
     for i in range(NUM_REQUESTS):
+        question = search_terms.pop()  # Get a random question without replacement
+        print("Question Asked: ", question)
+        input_payload['input_data']['input_string'][0]['content'] = question
+
         start_time = time.time()
         
         response = requests.post(URL, json=input_payload)
+        print(response)
         # Get the date/time for this request
         request_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 

@@ -3,12 +3,23 @@ import time
 import csv
 from datetime import datetime
 
+def is_file_empty(filename):
+    try:
+        return not bool(len(open(filename).readline()))
+    except:
+        return True
+
 # Constants
-URL = "http://0.0.0.0:5000/chat"
+URL = "http://52.249.202.104/chat" # Replace with service URL
 NUM_REQUESTS = 1000
 input_payload = {
     "input_data": {
-        "input_string": "Hello, how are you?"
+        "input_string": [
+            {
+                "role": "user",
+                "content": "Hello, how are you?"
+            }
+        ], 
     },
     "parameters": {
         "temperature": 0.6,
@@ -24,16 +35,17 @@ run_id = int(time.time())
 latencies = []
 
 # Open the CSV for writing
-with open('requests.csv', 'w', newline='') as file:
+with open('requests.csv', 'a', newline='') as file:
     writer = csv.writer(file)
-    # Write the header
-    # writer.writerow(["Run ID", "Request ID", "Request #", "Latency (ms)", "Date"])
+    
+    # If the file is empty, write the header
+    if is_file_empty('requests.csv'):
+        writer.writerow(["run_id", "request_id", "request_num", "latency", "timestamp"])
 
     for i in range(NUM_REQUESTS):
         start_time = time.time()
         
         response = requests.post(URL, json=input_payload)
-        
         # Get the date/time for this request
         request_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 

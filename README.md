@@ -1,5 +1,5 @@
 # llm-on-k8s
-Containerized LLM on Kuberntes
+Containerized LLM on Kubernetes
 
 # Introduction
 This guide provides insights on deploying two different APIs associated with Llama 2: one for text generation based on given prompts (llama-2-7b) and another tailored for chat-based applications (llama-2-7b-chat)

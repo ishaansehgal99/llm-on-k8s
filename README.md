@@ -6,8 +6,8 @@ This guide provides insights on deploying two different APIs associated with Lla
 
 # Build and Deployment Process
 1. Choose the Desired Model Directory: Navigate to either the llama-2-7b or llama-2-7b-chat directory, based on the desired model.
-2. Build the Docker Image: docker build -t your-image-name:your-tag .
-3. Deploy the Image to a Container: docker run --name your-container-name your-image-name:your-tag
+2. Build the Docker Image: ```docker build -t your-image-name:your-tag .```
+3. Deploy the Image to a Container: ```docker run --name your-container-name your-image-name:your-tag```
 
 
 # API Documentation

@@ -24,6 +24,18 @@ spec:
             nvidia.com/gpu: "1"
           requests:
             nvidia.com/gpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
       tolerations:
       - effect: NoSchedule
         key: sku
@@ -46,3 +58,4 @@ spec:
       port: 80
       targetPort: 5000
   type: LoadBalancer
+  

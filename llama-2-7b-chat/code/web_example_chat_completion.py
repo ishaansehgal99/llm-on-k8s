@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from llama import Llama
+import torch
 import os
 
 app = Flask(__name__)
@@ -21,8 +22,18 @@ generator = Llama.build(
 )
 
 @app.route('/')
-def health_check():
+def home():
     return "Server is running", 200
+
+@app.route('/healthz')
+def health_check():
+    # Check if a GPU is available
+    if not torch.cuda.is_available():
+        return "No GPU available", 500
+    # Check Llama model initialization
+    if not generator:
+        return "Llama model not initialized", 500
+    return "Healthy", 200
 
 @app.route('/configure', methods=['POST'])
 def configure_generator():

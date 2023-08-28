@@ -18,12 +18,14 @@ spec:
         - -c
         - cd /workspace/llama/llama-2-7b-chat && torchrun web_example_chat_completion.py
         name: llama-container
-        image: ishaansehgal99/llama-2-7b-chat:latest
+        image: aioss.azurecr.io/llama-2-7b-chat:latest
         resources:
           limits:
             nvidia.com/gpu: "1"
           requests:
             nvidia.com/gpu: "1"
+      # nodeSelector:
+      #   kubernetes.io/hostname: aks-gpuonly1-44139289-vmss000000
       tolerations:
       - effect: NoSchedule
         key: sku

@@ -45,8 +45,7 @@ Endpoint: ```/chat``` <br>
 Method: POST <br>
 Purpose: Facilitates chat-based text interactions. <br>
 Example:
-```curl -X POST -H "Content-Type: application/json" -d '{"input_data": {"input_string": [{"role":"user","content":"Hello, how are you?"}]}, "parameters": {"temperature": 0.7, "top_p"
-: 0.8, "max_gen_len": 100}}' http://localhost:5000/chat```
+```curl -X POST -H "Content-Type: application/json" -d '{"input_data": {"input_string": [{"role":"user","content":"Hello, how are you?"}]}, "parameters": {"temperature": 0.7, "top_p" : 0.8, "max_gen_len": 100}}' http://localhost:5000/chat```
 
 # Conclusion
 These APIs provide a streamlined approach to harness the capabilities of the Llama 2 model for both text generation and chat-oriented applications. Ensure the correct deployment and configuration for optimal utilization.

@@ -6,7 +6,6 @@ import signal
 import os
 import torch.distributed as dist
 import argparse
-import time
 
 # Setup argparse
 parser = argparse.ArgumentParser(description="Llama API server.")
@@ -39,7 +38,6 @@ def broadcast_for_generation(input_string, max_gen_len, temperature, top_p):
 
 def shutdown_server():
     """Shut down the server."""
-    time.sleep(2)  # Delay for 2 seconds to ensure the response is sent
     os.kill(os.getpid(), signal.SIGINT)
 
 # Default values for the generator
@@ -143,7 +141,7 @@ if __name__ == "__main__":
         app.run(host='0.0.0.0', port=5000)
     else:
         # Note to enable logs to std out uncomment 
-        sys.stdout = sys.__stdout__
+        # sys.stdout = sys.__stdout__
         while True:
             worker_num = dist.get_rank()
             print(f"Worker {worker_num} ready to recieve next command")

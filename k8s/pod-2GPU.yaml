@@ -23,8 +23,8 @@ spec:
   - name: dshm
     emptyDir:
       medium: Memory
-  nodeSelector:
-    kubernetes.io/hostname: aks-gpupool-14760623-vmss000000
+  # nodeSelector:
+  #   kubernetes.io/hostname: gpu_machine_here
   tolerations:
   - effect: NoSchedule
     key: sku

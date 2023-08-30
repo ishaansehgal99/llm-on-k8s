@@ -77,8 +77,9 @@ def shutdown():
     """Shutdown the server and worker processes."""
     global should_shutdown
     should_shutdown = True
-    # Broadcast shutdown command to worker processes
-    broadcast_for_shutdown()
+    if dist.get_world_size() > 1:
+        # Broadcast shutdown command to worker processes
+        broadcast_for_shutdown()
     return "", 200
 
 @app.route('/chat', methods=['POST'])
@@ -97,8 +98,9 @@ def chat_completion():
     temperature = parameters.get('temperature', 0.6)
     top_p = parameters.get('top_p', 0.9)
 
-    # Broadcast generation params to worker processes
-    broadcast_for_generation(input_string, max_gen_len, temperature, top_p)
+    if dist.get_world_size() > 1:
+        # Broadcast generation params to worker processes
+        broadcast_for_generation(input_string, max_gen_len, temperature, top_p)
 
     # Master's own generation
     try:

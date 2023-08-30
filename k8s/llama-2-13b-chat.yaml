@@ -24,6 +24,9 @@ spec:
             nvidia.com/gpu: 2
           requests:
             nvidia.com/gpu: 2
+        volumeMounts:
+        - name: dshm
+          mountPath: /dev/shm
         ports:
         - containerPort: 5000
         livenessProbe:
@@ -48,6 +51,10 @@ spec:
       - effect: NoSchedule
         key: nvidia.com/gpu
         operator: Exists
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory
 ---
 
 apiVersion: v1
@@ -58,8 +65,8 @@ spec:
   selector:
     app: llama
   ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 5000
+  - protocol: TCP
+    port: 80
+    targetPort: 5000
   type: LoadBalancer
   

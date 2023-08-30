@@ -24,9 +24,9 @@ def build_generator(params):
     """Build Llama generator from provided parameters."""
     return Llama.build(**params)
 
-def broadcast_for_reconfig(new_params):
-    """Broadcasts new configurations to worker processes."""
-    dist.broadcast_object_list(["configure", new_params, None], src=0)
+def broadcast_for_shutdown():
+    """Broadcasts shutdown command to worker processes."""
+    dist.broadcast_object_list(["shutdown", None, None], src=0)
 
 def broadcast_for_generation(input_string, max_gen_len, temperature, top_p):
     """Broadcasts generation parameters to worker processes."""
@@ -69,33 +69,17 @@ def health_check():
 def check_shutdown(exception=None):
     global should_shutdown
     if should_shutdown:
+        print("Server shutting down...")
         shutdown_server()
 
-@app.route('/configure', methods=['POST'])
-def configure_generator():
-    global generator
-    global gen_params
-
-    new_params = { key: request.json.get(key, value) for key, value in gen_params.items() }
-
-    # Broadcasting the configuration changes
-    broadcast_for_reconfig(new_params)
-
-    # Reconfiguring the generator on master
-    try:
-        generator = build_generator(new_params)
-        gen_params = new_params
-    except Exception as e:
-        print("Failed to reconfigure model: " + \
-            str(e) + " without valid model, shutting down\n") 
-        # Broadcast shutdown command to worker processes
-        dist.broadcast_object_list(["shutdown", None, None], src=0)
-        # Mark Flask server for shutdown
-        global should_shutdown
-        should_shutdown = True
-        return jsonify(error="Failed to reconfigure model"), 400
-    
-    return jsonify(status="success"), 200
+@app.route('/shutdown', methods=['POST'])
+def shutdown():
+    """Shutdown the server and worker processes."""
+    global should_shutdown
+    should_shutdown = True
+    # Broadcast shutdown command to worker processes
+    broadcast_for_shutdown()
+    return "", 200
 
 @app.route('/chat', methods=['POST'])
 def chat_completion():
@@ -162,13 +146,6 @@ if __name__ == "__main__":
                     print(f"Worker {worker_num} completed generation")              
                 except Exception as e:
                     print(f"Error in generation: {str(e)}")
-                    
-            elif command == "configure":
-                try:
-                    new_params = config[1]
-                    generator = build_generator(new_params)
-                    print(f"Worker {worker_num} completed reconfigure")              
-                except Exception as e:
-                    print(f"Error in reconfiguring generator: {str(e)}")
             elif command == "shutdown":
+                print(f"Worker {worker_num} shutting down")
                 sys.exit(0)

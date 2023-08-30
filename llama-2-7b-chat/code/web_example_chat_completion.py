@@ -2,8 +2,35 @@ from flask import Flask, request, jsonify
 from llama import Llama
 import torch
 import os
+import gc
 
 app = Flask(__name__)
+
+class LlamaSingleton:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(LlamaSingleton, cls).__new__(cls)
+            cls._instance.initialize_generator(**kwargs)
+        return cls._instance
+
+    def initialize_generator(self, **kwargs):
+        with torch.no_grad():
+            self.generator = Llama.build(
+                ckpt_dir=kwargs.get('ckpt_dir', 'weights/'),
+                tokenizer_path=kwargs.get('tokenizer_path', 'tokenizer.model'),
+                max_seq_len=kwargs.get('max_seq_len', 128),
+                max_batch_size=kwargs.get('max_batch_size', 4),
+                model_parallel_size=kwargs.get('model_parallel_size', 1)
+            )
+
+    def reconfigure(self, **kwargs):
+        del self.generator
+        torch.cuda.empty_cache()  # Clear CUDA cache
+        gc.collect()  # Explicit garbage collection
+        self.initialize_generator(**kwargs)
+
 
 # Default values for the generator
 gen_params = {
@@ -14,12 +41,8 @@ gen_params = {
     'model_parallel_size': int(os.environ.get("WORLD_SIZE", 1)),
 }
 
-generator = Llama.build(
-    ckpt_dir=gen_params['ckpt_dir'],
-    tokenizer_path=gen_params['tokenizer_path'],
-    max_seq_len=gen_params['max_seq_len'],
-    max_batch_size=gen_params['max_batch_size'],
-)
+generator_instance = LlamaSingleton(**gen_params)
+generator = generator_instance.generator
 
 @app.route('/')
 def home():
@@ -45,16 +68,10 @@ def configure_generator():
         new_params[key] = request.json.get(key, value)
 
     try:
-        generator = Llama.build(
-            ckpt_dir=new_params['ckpt_dir'],
-            tokenizer_path=new_params['tokenizer_path'],
-            max_seq_len=new_params['max_seq_len'],
-            max_batch_size=new_params['max_batch_size'],
-            # Reinitializing generator requires this additional param
-            model_parallel_size=new_params['model_parallel_size']
-        )
+        generator_instance.reconfigure(**new_params)
+        generator = generator_instance.generator
         gen_params = new_params
-    except Exception as e: 
+    except Exception as e:
         return jsonify(error="Failed invalid parameters: " + str(e)), 400
 
     return jsonify(status="success"), 200
@@ -65,7 +82,7 @@ def chat_completion():
     input_data = data.get('input_data')
     if not input_data:
         return jsonify(error="Input data is required"), 400
-    
+
     input_string = input_data.get("input_string")
     if not input_data:
         return jsonify(error="Input string is required"), 400

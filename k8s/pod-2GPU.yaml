@@ -4,6 +4,8 @@ metadata:
   annotations:
   name: demo-2gpu
   namespace: default
+  labels:
+    app: llama
 spec:
   containers:
   - command:

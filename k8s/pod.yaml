@@ -4,6 +4,8 @@ metadata:
   annotations:
   name: demo
   namespace: default
+  labels:
+    app: llama
 spec:
   containers:
   - command:

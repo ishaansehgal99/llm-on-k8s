@@ -28,9 +28,9 @@ def broadcast_for_shutdown():
     """Broadcasts shutdown command to worker processes."""
     dist.broadcast_object_list(["shutdown", None, None], src=0)
 
-def broadcast_for_text_generation(prompt, max_gen_len, temperature, top_p):
+def broadcast_for_text_generation(prompts, max_gen_len, temperature, top_p):
     """Broadcasts generation parameters to worker processes."""
-    dist.broadcast_object_list(["text_generate", prompt, {
+    dist.broadcast_object_list(["text_generate", prompts, {
         'max_gen_len': max_gen_len,
         'temperature': temperature,
         'top_p': top_p
@@ -82,20 +82,21 @@ def shutdown():
         broadcast_for_shutdown()
     return "", 200
 
-@app.route('/generate', methods=['GET'])
+@app.route('/generate', methods=['POST'])
 def generate_text():
-    prompts = request.args.get('prompts')
-    # Check if the prompt is provided
-    if not prompts:
-        return jsonify(error="Prompts are required"), 400
+    data = request.json
+    prompts = data.get('prompts')
+    # Check if the prompts are provided
+    if not prompts or not isinstance(prompts, list):
+        return jsonify(error="Prompts are required and should be an array"), 400
 
-    temperature = float(request.args.get('temperature', 0.6))
-    top_p = float(request.args.get('top_p', 0.9))
-    max_gen_len = int(request.args.get('max_gen_len', 64))
+    parameters = data.get("parameters", {})
+    max_gen_len = parameters.get('max_gen_len', 64)
+    temperature = parameters.get('temperature', 0.6)
+    top_p = parameters.get('top_p', 0.9)
 
     if dist.get_world_size() > 1:
-        # Broadcast generation params to worker processes
-        broadcast_for_text_generation(prompt, max_gen_len, temperature, top_p)
+        broadcast_for_text_generation(prompts, max_gen_len, temperature, top_p)
 
     try: 
         results = generator.text_completion(
@@ -136,10 +137,10 @@ if __name__ == "__main__":
 
             if command == "text_generate":
                 try:
-                    prompt = config[1]
+                    prompts = config[1]
                     parameters = config[2]
                     generator.text_completion(
-                        [prompt],
+                        prompts,
                         max_gen_len=parameters.get('max_gen_len', 64),
                         temperature=parameters.get('temperature', 0.6),
                         top_p=parameters.get('top_p', 0.9)

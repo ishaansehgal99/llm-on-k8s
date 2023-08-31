@@ -2,13 +2,13 @@
 # This software may be used and distributed according to the terms of the Llama 2 Community License Agreement.
 
 import fire
-import sys
 
 from llama import Llama
 
+
 def main(
-    ckpt_dir: str = 'weights/',
-    tokenizer_path: str = 'tokenizer.model',
+    ckpt_dir: str,
+    tokenizer_path: str,
     temperature: float = 0.6,
     top_p: float = 0.9,
     max_seq_len: int = 128,
@@ -22,25 +22,33 @@ def main(
         max_batch_size=max_batch_size,
     )
 
-    prompt = None
-    if len(sys.argv) > 1:
-        prompt = sys.argv[1]
-    while True:
-        if not prompt:
-            prompt = input("Prompt: ")
-        if prompt in ['quit', 'q', 'exit']:
-            sys.exit()
-        results = generator.text_completion(
-            [prompt],
-            max_gen_len=max_gen_len,
-            temperature=temperature,
-            top_p=top_p,
-        )
-        prompt = None
-        if len(results) == 0:
-            print("No results")
-            continue
-        print(f"> {results[0]['generation']}")
+    prompts = [
+        # For these prompts, the expected answer is the natural continuation of the prompt
+        "I believe the meaning of life is",
+        "Simply put, the theory of relativity states that ",
+        """A brief message congratulating the team on the launch:
+
+        Hi everyone,
+        
+        I just """,
+        # Few shot prompt (providing a few examples before asking model to complete more);
+        """Translate English to French:
+        
+        sea otter => loutre de mer
+        peppermint => menthe poivrée
+        plush girafe => girafe peluche
+        cheese =>""",
+    ]
+    results = generator.text_completion(
+        prompts,
+        max_gen_len=max_gen_len,
+        temperature=temperature,
+        top_p=top_p,
+    )
+    for prompt, result in zip(prompts, results):
+        print(prompt)
+        print(f"> {result['generation']}")
+        print("\n==================================\n")
 
 
 if __name__ == "__main__":

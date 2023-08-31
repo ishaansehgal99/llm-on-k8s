@@ -54,7 +54,7 @@ curl -X POST \
 ```
 
 ## Llama-2-chat Interaction
-**Note:** Apart from the distinct chat interaction endpoint described below, all other endpoints (Server Health Check, Model Health Check, and Configure Generator) for Llama-2-chat are identical to those in Llama-2.
+**Note:** Apart from the distinct chat interaction endpoint described below, all other endpoints (Server Health Check, Model Health Check, and Shutdown) for Llama-2-chat are identical to those in Llama-2.
 
 Chat Interaction <br>
 Endpoint: ```/chat``` <br>

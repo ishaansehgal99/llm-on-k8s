@@ -20,14 +20,16 @@ search_terms = load_search_terms_from_csv("common-gpt-questions.csv")
 random.shuffle(search_terms)
 
 # Constants
-URL = "http://52.149.254.11/chat" # Replace with service URL
+URL = "http://20.241.194.198/chat" # Replace with service URL
 input_payload = {
     "input_data": {
         "input_string": [
-            {
-                "role": "user",
-                "content": ""
-            }
+            [
+                {
+                    "role": "user",
+                    "content": ""
+                }
+            ]
         ], 
     },
     "parameters": {
@@ -56,12 +58,13 @@ with open('gpt-requests.csv', 'a', newline='') as file:
     for i in range(NUM_REQUESTS):
         question = search_terms.pop()  # Get a random question without replacement
         print("Question Asked: ", question)
-        input_payload['input_data']['input_string'][0]['content'] = question
+        input_payload['input_data']['input_string'][0][0]['content'] = question
 
         start_time = time.time()
         
         response = requests.post(URL, json=input_payload)
-        print(response)
+        print("Response Status:", response.status_code)
+        print("Response Body:", response.text)
         # Get the date/time for this request
         request_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 

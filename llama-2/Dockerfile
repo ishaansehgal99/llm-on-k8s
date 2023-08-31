@@ -8,4 +8,4 @@ WORKDIR /workspace/llama
 RUN pip install -e .
 RUN pip install flask
 
-ADD code /workspace/llama/llama-2-7b
+ADD code /workspace/llama/llama-2

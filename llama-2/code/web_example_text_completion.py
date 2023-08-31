@@ -91,7 +91,7 @@ def generate_text():
         return jsonify(error="Prompts are required and should be an array"), 400
 
     parameters = data.get("parameters", {})
-    max_gen_len = parameters.get('max_gen_len', 64)
+    max_gen_len = parameters.get('max_gen_len', None)
     temperature = parameters.get('temperature', 0.6)
     top_p = parameters.get('top_p', 0.9)
 
@@ -141,7 +141,7 @@ if __name__ == "__main__":
                     parameters = config[2]
                     generator.text_completion(
                         prompts,
-                        max_gen_len=parameters.get('max_gen_len', 64),
+                        max_gen_len=parameters.get('max_gen_len', None),
                         temperature=parameters.get('temperature', 0.6),
                         top_p=parameters.get('top_p', 0.9)
                     )

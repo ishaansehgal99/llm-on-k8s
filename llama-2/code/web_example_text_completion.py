@@ -84,10 +84,10 @@ def shutdown():
 
 @app.route('/generate', methods=['GET'])
 def generate_text():
-    prompt = request.args.get('prompt')
+    prompts = request.args.get('prompts')
     # Check if the prompt is provided
-    if not prompt:
-        return jsonify(error="Prompt is required"), 400
+    if not prompts:
+        return jsonify(error="Prompts are required"), 400
 
     temperature = float(request.args.get('temperature', 0.6))
     top_p = float(request.args.get('top_p', 0.9))
@@ -99,7 +99,7 @@ def generate_text():
 
     try: 
         results = generator.text_completion(
-            [prompt],
+            prompts,
             max_gen_len=max_gen_len,
             temperature=temperature,
             top_p=top_p,
@@ -110,7 +110,18 @@ def generate_text():
     if len(results) == 0:
         return jsonify(error="No results"), 404
 
-    return jsonify(response=results[0]['generation'])
+    response_data = []
+    for prompt, result in zip(prompts, results):
+        print(prompt)
+        print(f"> {result['generation']}")
+        print("\n==================================\n")
+        entry = {
+            "prompt": prompt,
+            "response": result['generation']
+        }
+        response_data.append(entry)
+
+    return jsonify(results=response_data), 200
 
 if __name__ == "__main__":
     if dist.get_rank() == 0:

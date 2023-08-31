@@ -105,7 +105,7 @@ def chat_completion():
     # Master's own generation
     try:
         results = generator.chat_completion(
-            [input_string],
+            input_string,
             max_gen_len=max_gen_len,
             temperature=temperature,
             top_p=top_p,
@@ -115,12 +115,27 @@ def chat_completion():
 
     if len(results) == 0:
         return jsonify(error="No results"), 404
+    
+    response_data = []
+    for dialog, result in zip(input_string, results):
+        conversation = []
+        for msg in dialog:
+            print(f"{msg['role'].capitalize()}: {msg['content']}\n")
+            conversation.append({
+                "role": msg['role'].capitalize(),
+                "content": msg['content']
+            })
+        print(
+            f"> {result['generation']['role'].capitalize()}: {result['generation']['content']}"
+        )
+        conversation.append({
+            "role": result['generation']['role'].capitalize(),
+            "content": result['generation']['content']
+        })
+        response_data.append(conversation)
+        print("\n==================================\n")
 
-    result = results[0]
-    return jsonify(
-        role=result['generation']['role'].capitalize(),
-        content=result['generation']['content']
-    )
+    return jsonify(results=response_data), 200
 
 if __name__ == "__main__":
     if dist.get_rank() == 0:
@@ -140,7 +155,7 @@ if __name__ == "__main__":
                     input_string = config[1]
                     parameters = config[2]
                     generator.chat_completion(
-                        [input_string],
+                        input_string,
                         max_gen_len=parameters.get('max_gen_len', 64),
                         temperature=parameters.get('temperature', 0.6),
                         top_p=parameters.get('top_p', 0.9)

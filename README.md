@@ -2,7 +2,7 @@
 This repo adds sufficient support to containerize OSS LLM models such as llama. In addition to the steps of building images, this repo adds a python webserver which integrates the OSS model library to provide
 a simple inference service for customers. Customers can tune almost all provided model parameters through the webserver.
 
-## Build and Deployment Process
+## Build
 1. Choose the Desired Model Directory: Navigate to either the llama-2 or llama-2-chat directory, based on the desired model.
 2. Build the Docker Image: ```docker build -t your-image-name:your-tag .```
 3. Deploy the Image to a Container: ```docker run --name your-container-name your-image-name:your-tag```

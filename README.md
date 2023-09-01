@@ -1,5 +1,6 @@
-# llm-on-k8s
-Containerized LLM on Kubernetes
+# Containerize LLM models
+This repo adds sufficient support to containerize OSS LLM models such as llama. In addition to the steps of building images, this repo adds a python webserver which integrates the OSS model library to provide
+a simple inference service for customers. Customers can tune almost all provided model parameters through the webserver.
 
 # Introduction
 This guide provides insights on deploying two different APIs associated with Llama 2: one for text generation based on given prompts (llama-2) and another tailored for chat-based applications (llama-2-chat)

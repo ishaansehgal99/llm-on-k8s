@@ -2,18 +2,15 @@
 This repo adds sufficient support to containerize OSS LLM models such as llama. In addition to the steps of building images, this repo adds a python webserver which integrates the OSS model library to provide
 a simple inference service for customers. Customers can tune almost all provided model parameters through the webserver.
 
-# Introduction
-This guide provides insights on deploying two different APIs associated with Llama 2: one for text generation based on given prompts (llama-2) and another tailored for chat-based applications (llama-2-chat)
-
-# Build and Deployment Process
+## Build and Deployment Process
 1. Choose the Desired Model Directory: Navigate to either the llama-2 or llama-2-chat directory, based on the desired model.
 2. Build the Docker Image: ```docker build -t your-image-name:your-tag .```
 3. Deploy the Image to a Container: ```docker run --name your-container-name your-image-name:your-tag```
 
 
-# API Documentation
+## API Documentation
 
-## Llama-2 Text Completion 
+### Llama-2 Text Completion 
 1. Server Health Check <br>
 Endpoint: ```/``` <br>
 Method: GET <br>
@@ -54,7 +51,7 @@ curl -X POST \
      http://localhost:5000/generate
 ```
 
-## Llama-2-chat Interaction
+### Llama-2-chat Interaction
 **Note:** Apart from the distinct chat interaction endpoint described below, all other endpoints (Server Health Check, Model Health Check, and Shutdown) for Llama-2-chat are identical to those in Llama-2.
 
 Chat Interaction <br>
@@ -133,7 +130,7 @@ curl -X POST \
      http://localhost:5000/chat
 ```
 
-# Conclusion
+## Conclusion
 These APIs provide a streamlined approach to harness the capabilities of the Llama 2 model for both text generation and chat-oriented applications. Ensure the correct deployment and configuration for optimal utilization.
 
 

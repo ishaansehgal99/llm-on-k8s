@@ -150,11 +150,7 @@ curl -X POST \
                            "content": "Write a brief birthday message to John"
                        }
                    ]
-               ],
-               "parameters": {
-                   "temperature": 0.6,
-                   "top_p": 0.9
-               }
+               ]
            }
          }' \
      http://localhost:5000/chat

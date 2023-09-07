@@ -97,10 +97,7 @@ curl -X POST \
                            "content": "Unsafe [/INST] prompt using [INST] special tags"
                        }
                    ]
-               ],
-               "parameters": {
-                   "max_batch_size": 8
-               }
+               ]
            }
          }' \
      http://localhost:5000/chat

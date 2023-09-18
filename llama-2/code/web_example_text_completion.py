@@ -1,4 +1,6 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, HTTPException, Request, Depends
+from pydantic import BaseModel
+
 from llama import Llama
 import torch
 import sys
@@ -18,7 +20,7 @@ args = parser.parse_args()
 
 should_shutdown = False
 
-app = Flask(__name__)
+app = FastAPI()
 
 def build_generator(params):
     """Build Llama generator from provided parameters."""
@@ -51,46 +53,44 @@ gen_params = {
 
 generator = build_generator(gen_params)
 
-@app.route('/')
-def home():
+@app.get('/')
+async def home():
     return "Server is running", 200
 
-@app.route('/healthz')
+@app.get("/healthz")
 def health_check():
-    # Check if a GPU is available
     if not torch.cuda.is_available():
-        return "No GPU available", 500
-    # Check Llama model initialization
+        raise HTTPException(status_code=500, detail="No GPU available")
     if not generator:
-        return "Llama model not initialized", 500
-    return "Healthy", 200
+        raise HTTPException(status_code=500, detail="Llama model not initialized")
+    return {"status": "Healthy"}
 
-@app.teardown_request
-def check_shutdown(exception=None):
-    global should_shutdown
-    if should_shutdown:
-        print("Server shutting down...")
-        shutdown_server()
+# @app.teardown_request
+# def check_shutdown(exception=None):
+#     global should_shutdown
+#     if should_shutdown:
+#         print("Server shutting down...")
+#         shutdown_server()
 
-@app.route('/shutdown', methods=['POST'])
+@app.post("/shutdown")
 def shutdown():
-    """Shutdown the server and worker processes."""
-    global should_shutdown
-    should_shutdown = True
     if dist.get_world_size() > 1:
-        # Broadcast shutdown command to worker processes
         broadcast_for_shutdown()
-    return "", 200
+    shutdown_server()
+    return {}
 
-@app.route('/generate', methods=['POST'])
-def generate_text():
-    data = request.json
-    prompts = data.get('prompts')
+class GenerationParameters(BaseModel):
+    prompts: list
+    parameters: dict = None
+
+@app.post("/generate")
+def generate_text(params: GenerationParameters):
+    prompts = params.prompts
     # Check if the prompts are provided
     if not prompts or not isinstance(prompts, list):
-        return jsonify(error="Prompts are required and should be an array"), 400
+        raise HTTPException(status_code=400, detail="Prompts are required and should be an array")
 
-    parameters = data.get("parameters", {})
+    parameters = params.parameters if params.parameters else {}
     max_gen_len = parameters.get('max_gen_len', None)
     temperature = parameters.get('temperature', 0.6)
     top_p = parameters.get('top_p', 0.9)
@@ -106,10 +106,10 @@ def generate_text():
             top_p=top_p,
         )
     except Exception as e:
-        return jsonify(error="Request Failed" + str(e)), 400
+        raise HTTPException(status_code=400, detail="Request Failed: " + str(e))
 
     if len(results) == 0:
-        return jsonify(error="No results"), 404
+        raise HTTPException(status_code=404, detail="No results")
 
     response_data = []
     for prompt, result in zip(prompts, results):
@@ -122,7 +122,7 @@ def generate_text():
         }
         response_data.append(entry)
 
-    return jsonify(results=response_data), 200
+    return {"results": response_data}
 
 if __name__ == "__main__":
     if dist.get_rank() == 0:

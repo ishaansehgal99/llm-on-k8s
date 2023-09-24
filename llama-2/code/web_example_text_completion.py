@@ -23,6 +23,7 @@ parser.add_argument("--max_batch_size", type=int, default=4, help="Maximum batch
 parser.add_argument("--model_parallel_size", type=int, default=int(os.environ.get("WORLD_SIZE", 1)), help="Model parallel size.")
 args = parser.parse_args()
 
+process_health_statuses = [Value('d', time.time()) for _ in range(int(os.environ.get("LOCAL_WORLD_SIZE", 1)))]
 HEALTH_CHECK = 20 # seconds, adjust as needed
 TIMEOUT = HEALTH_CHECK * 2  # seconds, adjust as needed
 
@@ -70,8 +71,6 @@ gen_params = {
 }
 
 generator = build_generator(gen_params)
-# Needs to be created after model initialization  (build_generator)
-process_health_statuses = [Value('d', time.time()) for _ in range(int(os.environ.get("LOCAL_WORLD_SIZE", 1)))]
 
 @app_main.get('/')
 def home():

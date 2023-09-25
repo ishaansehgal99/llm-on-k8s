@@ -23,10 +23,6 @@ parser.add_argument("--max_batch_size", type=int, default=4, help="Maximum batch
 parser.add_argument("--model_parallel_size", type=int, default=int(os.environ.get("WORLD_SIZE", 1)), help="Model parallel size.")
 args = parser.parse_args()
 
-process_health_statuses = [Value('d', time.time()) for _ in range(int(os.environ.get("LOCAL_WORLD_SIZE", 1)))]
-HEALTH_CHECK = 20 # seconds, adjust as needed
-TIMEOUT = HEALTH_CHECK * 2  # seconds, adjust as needed
-
 should_shutdown = False
 
 app_main = FastAPI()  # For the main process
@@ -52,15 +48,6 @@ def shutdown_server():
     """Shut down the server."""
     os.kill(os.getpid(), signal.SIGINT)
 
-def update_process_health_status(local_rank):
-    """
-    This function will be run by each worker to periodically update its health status timestamp.
-    """
-    while True:
-        # Update with the current time.
-        process_health_statuses[local_rank].value = time.time() 
-        time.sleep(HEALTH_CHECK)
-
 # Default values for the generator
 gen_params = {
     'ckpt_dir': args.ckpt_dir,
@@ -79,19 +66,17 @@ def home():
 @app_main.get("/healthz")
 @app_worker.get("/healthz")
 def health_check():
-    current_time = time.time()
-    unhealthy_processes = [i for i, timestamp in enumerate(process_health_statuses) if current_time - timestamp.value > TIMEOUT]
-    
     if not torch.cuda.is_available():
         raise HTTPException(status_code=500, detail="No GPU available")
     if not generator:
         raise HTTPException(status_code=500, detail="Llama model not initialized")
-    if unhealthy_processes:
-        raise HTTPException(status_code=500, detail=f"Processes {unhealthy_processes} are unhealthy")
     return {"status": "Healthy"}
 
 @app_main.post("/shutdown")
 def shutdown():
+    """Shutdown the server and worker processes."""
+    global should_shutdown
+    should_shutdown = True
     if dist.get_world_size() > 1:
         broadcast_for_shutdown()
     shutdown_server()
@@ -173,10 +158,6 @@ def worker_listen_tasks():
 
 if __name__ == "__main__":
     local_rank = int(os.environ.get("LOCAL_RANK"))
-    # Start the periodic health update in a separate thread
-    health_update_thread = threading.Thread(target=update_process_health_status, args=(local_rank,), daemon=True)
-    health_update_thread.start()
-    
     if dist.get_rank() == 0:
         # Start the main server
         uvicorn.run(app=app_main, host='0.0.0.0', port=5000)  # Use the app_main instance

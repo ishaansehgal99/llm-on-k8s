@@ -25,9 +25,6 @@ args = parser.parse_args()
 
 should_shutdown = False
 
-app_main = FastAPI()  # For the main process
-app_worker = FastAPI()  # For the worker processes
-
 def build_generator(params):
     """Build Llama generator from provided parameters."""
     return Llama.build(**params)
@@ -59,73 +56,82 @@ gen_params = {
 
 generator = build_generator(gen_params)
 
-@app_main.get('/')
-def home():
-    return "Server is running", 200
+def setup_main_routes():
+    @app_main.get('/')
+    def home():
+        return "Server is running", 200
 
-@app_main.get("/healthz")
-@app_worker.get("/healthz")
-def health_check():
-    if not torch.cuda.is_available():
-        raise HTTPException(status_code=500, detail="No GPU available")
-    if not generator:
-        raise HTTPException(status_code=500, detail="Llama model not initialized")
-    return {"status": "Healthy"}
+    @app_main.get("/healthz")
+    def health_check():
+        if not torch.cuda.is_available():
+            raise HTTPException(status_code=500, detail="No GPU available")
+        if not generator:
+            raise HTTPException(status_code=500, detail="Llama model not initialized")
+        return {"status": "Healthy"}
 
-@app_main.post("/shutdown")
-def shutdown():
-    """Shutdown the server and worker processes."""
-    global should_shutdown
-    should_shutdown = True
-    if dist.get_world_size() > 1:
-        broadcast_for_shutdown()
-    shutdown_server()
-    return {}
+    @app_main.post("/shutdown")
+    def shutdown():
+        """Shutdown the server and worker processes."""
+        global should_shutdown
+        should_shutdown = True
+        if dist.get_world_size() > 1:
+            broadcast_for_shutdown()
+        shutdown_server()
+        return {}
 
-class GenerationParameters(BaseModel):
-    prompts: list
-    parameters: Optional[dict] = None
+    class GenerationParameters(BaseModel):
+        prompts: list
+        parameters: Optional[dict] = None
 
-@app_main.post("/generate")
-def generate_text(params: GenerationParameters):
-    prompts = params.prompts
-    # Check if the prompts are provided
-    if not prompts or not isinstance(prompts, list):
-        raise HTTPException(status_code=400, detail="Prompts are required and should be an array")
+    @app_main.post("/generate")
+    def generate_text(params: GenerationParameters):
+        prompts = params.prompts
+        # Check if the prompts are provided
+        if not prompts or not isinstance(prompts, list):
+            raise HTTPException(status_code=400, detail="Prompts are required and should be an array")
 
-    parameters = params.parameters if params.parameters else {}
-    max_gen_len = parameters.get('max_gen_len', None)
-    temperature = parameters.get('temperature', 0.6)
-    top_p = parameters.get('top_p', 0.9)
+        parameters = params.parameters if params.parameters else {}
+        max_gen_len = parameters.get('max_gen_len', None)
+        temperature = parameters.get('temperature', 0.6)
+        top_p = parameters.get('top_p', 0.9)
 
-    if dist.get_world_size() > 1:
-        broadcast_for_text_generation(prompts, max_gen_len, temperature, top_p)
+        if dist.get_world_size() > 1:
+            broadcast_for_text_generation(prompts, max_gen_len, temperature, top_p)
 
-    try: 
-        results = generator.text_completion(
-            prompts,
-            max_gen_len=max_gen_len,
-            temperature=temperature,
-            top_p=top_p,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Request Failed: " + str(e))
+        try: 
+            results = generator.text_completion(
+                prompts,
+                max_gen_len=max_gen_len,
+                temperature=temperature,
+                top_p=top_p,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=400, detail="Request Failed: " + str(e))
 
-    if len(results) == 0:
-        raise HTTPException(status_code=404, detail="No results")
+        if len(results) == 0:
+            raise HTTPException(status_code=404, detail="No results")
 
-    response_data = []
-    for prompt, result in zip(prompts, results):
-        print(prompt)
-        print(f"> {result['generation']}")
-        print("\n==================================\n")
-        entry = {
-            "prompt": prompt,
-            "response": result['generation']
-        }
-        response_data.append(entry)
+        response_data = []
+        for prompt, result in zip(prompts, results):
+            print(prompt)
+            print(f"> {result['generation']}")
+            print("\n==================================\n")
+            entry = {
+                "prompt": prompt,
+                "response": result['generation']
+            }
+            response_data.append(entry)
 
-    return {"results": response_data}
+        return {"results": response_data}
+
+def setup_worker_routes(): 
+    @app_worker.get("/healthz")
+    def health_check():
+        if not torch.cuda.is_available():
+            raise HTTPException(status_code=500, detail="No GPU available")
+        if not generator:
+            raise HTTPException(status_code=500, detail="Llama model not initialized")
+        return {"status": "Healthy"}
 
 def start_worker_server():
     uvicorn.run(app=app_worker, host='0.0.0.0', port=5000)
@@ -157,15 +163,35 @@ def worker_listen_tasks():
             sys.exit(0)
 
 if __name__ == "__main__":
-    local_rank = int(os.environ.get("LOCAL_RANK"))
+    # Fetch the LOCAL_RANK environment variable to determine the rank of this process
+    # on the current node (machine).
+    local_rank = int(os.environ.get("LOCAL_RANK")) 
+
+    # dist.get_rank() provides the global rank across all nodes. 
+    # The following code is run by the globally ranked process 0.
     if dist.get_rank() == 0:
-        # Start the main server
+        # This is the main server that handles the main logic of our application.
+        app_main = FastAPI()
+        setup_main_routes()
         uvicorn.run(app=app_main, host='0.0.0.0', port=5000)  # Use the app_main instance
     else:
-        if local_rank == 0: 
-            # Start the worker server in a separate thread
+        # This code is executed by all processes that aren't the globally ranked 0.
+        # This includes processes on the main node as well as on other nodes.
+
+        # Uncomment to enable worker logs
+        # sys.stdout = sys.__stdout__
+
+        # If the current process is the locally ranked 0 (i.e., the primary process)
+        # on its node, then it starts a worker server that exposes a health check endpoint.
+        if local_rank == 0:
+            app_worker = FastAPI()
+            setup_worker_routes()
+             
+            # Start the worker server in a separate thread. This worker server will
+            # provide a healthz endpoint for monitoring the health of the node.
             server_thread = threading.Thread(target=start_worker_server, daemon=True)
             server_thread.start()
 
-        # Listen for tasks in the main thread
+        # Regardless of local rank, all non-globally-0-ranked processes will listen
+        # for tasks (like text completion) from the main server.
         worker_listen_tasks()

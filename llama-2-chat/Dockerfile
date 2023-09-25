@@ -6,6 +6,7 @@ RUN git clone https://github.com/facebookresearch/llama
 WORKDIR /workspace/llama
 
 RUN pip install -e .
-RUN pip install flask
+RUN pip install fastapi pydantic
+RUN pip install 'uvicorn[standard]'
 
 ADD code /workspace/llama/llama-2-chat

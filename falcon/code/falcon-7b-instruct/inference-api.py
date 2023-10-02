@@ -8,7 +8,7 @@
 import os
 
 # API
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 import uvicorn
 
 # ML
@@ -40,32 +40,21 @@ pipeline = transformers.pipeline(
     device_map="auto",
 )
 
-# def worker_listen_tasks(): 
-#     while True:
-#         worker_num = dist.get_rank()
-#         print(f"Worker {worker_num} ready to recieve next command")
-#         config = [None] * 3  # Command and its associated data
-#         dist.broadcast_object_list(config, src=0)
-#         command = config[0]
+@app.get('/')
+def home():
+    return "Server is running", 200
 
-#         if command == "generate":
-#             try:
-#                 input_string = config[1]
-#                 parameters = config[2]
-#                 generator.chat_completion(
-#                     input_string,
-#                     max_gen_len=parameters.get('max_gen_len', None),
-#                     temperature=parameters.get('temperature', 0.6),
-#                     top_p=parameters.get('top_p', 0.9)
-#                 )
-#                 print(f"Worker {worker_num} completed generation")              
-#             except Exception as e:
-#                 print(f"Error in generation: {str(e)}")
-#         elif command == "shutdown":
-#             print(f"Worker {worker_num} shutting down")
-#             sys.exit(0)
-
-@app.get("/generate/")
+@app.get("/healthz")
+def health_check():
+    if not torch.cuda.is_available():
+        raise HTTPException(status_code=500, detail="No GPU available")
+    if not model:
+        raise HTTPException(status_code=500, detail="Falcon model not initialized")
+    if not pipeline: 
+        raise HTTPException(status_code=500, detail="Falcon pipeline not initialized")
+    return {"status": "Healthy"}
+    
+@app.post("/generate")
 def generate_text(prompt: str):
     sequences = pipeline(
         prompt,
@@ -85,8 +74,6 @@ def generate_text(prompt: str):
 
 
 if __name__ == "__main__":
-    local_rank = int(os.environ.get("LOCAL_RANK"))
-    if dist.get_rank() == 0:
-        uvicorn.run(app=app, host='0.0.0.0', port=5000)
-    # else: 
-    #     worker_listen_tasks()
+    local_rank = int(os.environ.get("LOCAL_RANK", 0)) # Default to 0 if not set
+    port = 5000 + local_rank # Adjust port based on local rank
+    uvicorn.run(app=app, host='0.0.0.0', port=port)
